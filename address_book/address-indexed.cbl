@@ -10,7 +10,10 @@
                    record key is fd-name-code
                    alternate record key is fd-last-name
                    with duplicates file status is filestatus.
-                                                                      
+           select index-file assign to 'abindex'
+                   organization is sequential.
+                                                     
+ 
 
        data division.
 
@@ -18,8 +21,16 @@
        fd address-book.
        01 address-record.
        copy "address-record.cpy" replacing ==(tag)== by ==fd-==.
+       
+       fd index-file.
+       01 index-record.
+          05 index-field  9(09).
+       
 
        working-storage section.
+       01 ws-index-record.
+          05 ws-index-field 9(09).
+
        01 ws-response pic x value 'c'.
        01 address-structure.
        copy "address-record.cpy" replacing ==(tag)== by ==ws-==.
@@ -59,6 +70,11 @@
                 pic x to ws-response.
 
        procedure division.
+
+       main-code section.
+           open i-o address-file.  
+           perform get-index-record.
+
            display data-entry-screen.
            accept data-entry-screen.
 
@@ -67,11 +83,43 @@
 
            stop run.  
 
+       get-indexed-record section.
+           open input index-file.
+           read index-file into index-record
+                   at end 
+                   move index-record into ws-index-record.
+           close index-file.
+           if ws-index-field greater than zero then
+              compute ws-index-field = ws-index-field + 1.
+           else
+              move 1 tow ws-index-field.
+           end-if
+           open output index-file.
+           write index-record from ws-index-record.
+           close index-file.
+       get-index-recoord-exit. 
+           exit.
+
+
+
+
+
+                   
+
+           read address-file key is 'index'
+                invalid key
+                move 'index' to ws-last-name.
+                move 1 to ws-name-code.
+           
+
        wfile section.
            open output address-book.
            write address-record from address-structure.
            close address-book.
        wf-exit.
           exit.
+
+       get-index-record section.
+
 
 

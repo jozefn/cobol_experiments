@@ -1,0 +1,2 @@
+
+wr-index.cbl must be compiled with cobc -m -o wr-index wr-index.cbl as this is a called program.
