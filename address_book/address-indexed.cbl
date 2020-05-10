@@ -10,9 +10,6 @@
                    record key is fd-name-code
                    alternate record key is fd-last-name
                    with duplicates file status is filestatus.
-           select index-file assign to 'abindex'
-                   organization is sequential.
-                                                     
  
 
        data division.
@@ -22,21 +19,19 @@
        01 address-record.
        copy "address-record.cpy" replacing ==(tag)== by ==fd-==.
        
-       fd index-file.
-       01 index-record.
-          05 index-field  9(09).
-       
 
        working-storage section.
-       01 ws-index-record.
-          05 ws-index-field 9(09).
+      *> following variable is shared with wr-index to get next
+      *> index for indexed record
+       01 ws-index-number external pic s9(09).
 
        01 ws-response pic x value 'c'.
        01 address-structure.
        copy "address-record.cpy" replacing ==(tag)== by ==ws-==.
 
-       01 filestatus            pic x(02).
-          88 record-found       value '00'.
+       copy "filestatus.cpy".
+
+       01 fs-msg                    pic x(30).
 
 
        screen section.
@@ -69,57 +64,74 @@
           05  response-input                             line 10 col 30 
                 pic x to ws-response.
 
+       01 file-status-screen.
+          05 status-msg                             line 12 col 30
+             pic x(30) from fs-msg.
+
+
        procedure division.
+            open input address-book
+            if not fs-success
+                if fs-no-file 
+                    perform build-empty-file
+                    close address-book
+                else 
+                    display file-status-screen
+                    stop run
+                end-if
+            end-if.
 
-       main-code section.
-           open i-o address-file.  
-           perform get-index-record.
+            open i-o address-book.  
+            display data-entry-screen.
+            accept data-entry-screen.
 
-           display data-entry-screen.
-           accept data-entry-screen.
+            if ws-response is not equal to 'q' then
+                perform wfile
+            end-if.
 
-           if ws-response is not equal to 'q' then
-              perform wfile.
+            close address-book.
+            stop run.  
 
-           stop run.  
-
-       get-indexed-record section.
-           open input index-file.
-           read index-file into index-record
-                   at end 
-                   move index-record into ws-index-record.
-           close index-file.
-           if ws-index-field greater than zero then
-              compute ws-index-field = ws-index-field + 1.
-           else
-              move 1 tow ws-index-field.
-           end-if
-           open output index-file.
-           write index-record from ws-index-record.
-           close index-file.
-       get-index-recoord-exit. 
-           exit.
-
-
-
-
-
-                   
-
-           read address-file key is 'index'
-                invalid key
-                move 'index' to ws-last-name.
-                move 1 to ws-name-code.
-           
 
        wfile section.
-           open output address-book.
-           write address-record from address-structure.
-           close address-book.
+            call "wr-index".
+            move ws-index-number 
+            to ws-name-code.
+            move address-structure
+            to address-record.
+            write address-record.
+            if fs-success
+                move "record written" 
+                to fs-msg
+                display file-status-screen
+            end-if.
        wf-exit.
           exit.
 
-       get-index-record section.
-
-
+       build-empty-file section.
+            move -1 
+            to ws-index-number.
+            call "wr-index".
+            open output address-book.
+            if not fs-success
+                move function concatenate(" error status: ";filestatus)
+                  to fs-msg
+                display file-status-screen
+                stop run
+            end-if.
+            move 'first_record'
+            to ws-last-name.
+            move ws-index-number 
+            to ws-name-code.
+            move address-structure
+            to address-record.
+            write address-record.
+            if not fs-success
+                move function concatenate(" error status: ";filestatus)
+                  to fs-msg
+                display file-status-screen
+                stop run
+            end-if.
+       bef-exit.
+           exit.
 

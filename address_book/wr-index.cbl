@@ -18,7 +18,7 @@
 
        working-storage section.
        01 ws-index-status pic x(02).
-       01 ws-index-number external pic 9(09).
+       01 ws-index-number external pic s9(09).
        01 ws-index-record.
           05 ws-index-field pic 9(09).
 
@@ -29,6 +29,12 @@
               move 0 to ws-index-field
               write index-record from ws-index-record
               close index-file.
+           if ws-index-number less than 0
+              open output index-file
+              move 0 to ws-index-field
+              write index-record from ws-index-record
+              close index-file.
+
            open input index-file.
            read index-file into ws-index-record.
            close index-file.
