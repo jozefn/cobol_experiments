@@ -25,44 +25,55 @@
       *> index for indexed record
        01 ws-index-number external pic s9(09).
 
-       01 ws-response pic x value 'c'.
+       01 ws-response pic x.
+       
        01 address-structure.
        copy "address-record.cpy" replacing ==(tag)== by ==ws-==.
 
        copy "filestatus.cpy".
 
        01 fs-msg                    pic x(30).
+       01 ws-msg                    pic x(30).
+       01 ws-message                pic x(30).
 
 
        screen section.
-       01 data-entry-screen.
-          05  value "Last name:" blank screen     line 1 col 10.
-          05  last-name                           line 1 col 30 
-                 pic x(20) to ws-last-name.
-          05  value "First name:"                 line 2 col 10.
-          05  first-name                          line 2 col 30 
-                 pic x(20) to ws-first-name.
-          05  value "Street name:"                line 3 col 10.
-          05  street-name                         line 3 col 30 
-                 pic x(40) to ws-street-name.
-          05  value "City:"                       line 4 col 10. 
-          05  city-name                           line 4 col 30 
-                 pic x(40) to ws-city.
-          05  value "State:"                      line 5 col 10.
-          05  state-name                          line 5 col 30
-                pic x(2) to ws-state.
-          05  value "Zip:"                        line 6 col 10.
-          05  zip-value                           line 6 col 30
-                pic x(10) to ws-zip.
-          05  value "notes:"                      line 7 col 10.
-          05  zip-value                           line 7 col 30
-                pic x(50) to ws-notes.
+       01 blank-screen blank screen.
 
-          05  value "c - to continue"                    line 8 col 10.
-          05  value "q - to quit"                        line 9 col 10.
-          05  value "enter response"                     line 10 col 10.
-          05  response-input                             line 10 col 30 
+       01 action-entry-screen blank screen.
+          05  value "Action: "                    line 1 col 10.
+          05  response-input                      line 1 col 30 
                 pic x to ws-response.
+          05  msg-value                           line 10 col 30
+                pic x(30) from ws-message.
+
+       01 data-entry-screen blank screen.
+          05  value "Action: "                    line 1 col 10.
+          05  response-input                      line 1 col 30 
+                pic x from ws-response.
+          05  value "Last name:"                  line 3 col 10.
+          05  last-name                           line 3 col 30 
+                 pic x(20) to ws-last-name.
+          05  value "First name:"                 line 4 col 10.
+          05  first-name                          line 4 col 30 
+                 pic x(20) to ws-first-name.
+          05  value "Street name:"                line 5 col 10.
+          05  street-name                         line 5 col 30 
+                 pic x(40) to ws-street-name.
+          05  value "City:"                       line 6 col 10. 
+          05  city-name                           line 6 col 30 
+                 pic x(40) to ws-city.
+          05  value "State:"                      line 7 col 10.
+          05  state-name                          line 7 col 30
+                pic x(2) to ws-state.
+          05  value "Zip:"                        line 8 col 10.
+          05  zip-value                           line 8 col 30
+                pic x(10) to ws-zip.
+          05  value "notes:"                      line 9 col 10.
+          05  zip-value                           line 9 col 30
+                pic x(50) to ws-notes.
+          05  msg-value                           line 10 col 30
+                pic x(30) from ws-message.
 
        01 file-status-screen.
           05 status-msg                             line 12 col 30
@@ -70,41 +81,69 @@
 
 
        procedure division.
+            perform check-file-exist.
+            perform show-screen until ws-response is equal to 'q'.
+            stop run.  
+
+       check-file-exist section.
             open input address-book
             if not fs-success
                 if fs-no-file 
                     perform build-empty-file
                     close address-book
                 else 
-                    display file-status-screen
-                    stop run
+                    perform get-file-status
                 end-if
             end-if.
+       cef-exist.
+           exit.
 
-            open i-o address-book.  
-            display data-entry-screen.
-            accept data-entry-screen.
+       show-screen section.
+            perform initialize-ws-record.
+            display action-entry-screen.
+            accept action-entry-screen.
 
-            if ws-response is not equal to 'q' then
-                perform wfile
+            if ws-response is equal to 'h' then
+               perform show-help
             end-if.
 
-            close address-book.
-            stop run.  
+            if ws-response is equal to 'a' then
+               perform add-data
+            end-if.
 
+
+       ss-exit.
+          exit.
+
+       add-data section.
+           display data-entry-screen.
+           accept data-entry-screen.
+           if ws-last-name is equal spaces then
+              move " Must have last name " to ws-message
+              go to ad-exit
+           end-if.
+           perform wfile.
+           perform get-file-status.
+           perform initialize-ws-record.
+       ad-exit.
+         exit.
+
+       show-help section.
+           display "h - help " at line 15 col 10.
+           display "a - add new record " at line 16 col 10.
+           display "f - find record " at line 17 col 10.
+           display "e - find record " at line 18 col 10.
+           display "q - quit program " at line 18 col 10.
+       sh-exit.
+         exit.
 
        wfile section.
-            call "wr-index".
-            move ws-index-number 
-            to ws-name-code.
-            move address-structure
-            to address-record.
-            write address-record.
-            if fs-success
-                move "record written" 
-                to fs-msg
-                display file-status-screen
-            end-if.
+           call "wr-index".
+           move ws-index-number to ws-name-code.
+           move address-structure to address-record.
+           open output address-book.
+           write address-record.
+           close address-book.
        wf-exit.
           exit.
 
@@ -113,10 +152,8 @@
             to ws-index-number.
             call "wr-index".
             open output address-book.
+            perform get-file-status.
             if not fs-success
-                move function concatenate(" error status: ";filestatus)
-                  to fs-msg
-                display file-status-screen
                 stop run
             end-if.
             move 'first_record'
@@ -126,12 +163,30 @@
             move address-structure
             to address-record.
             write address-record.
+            perform get-file-status.
             if not fs-success
-                move function concatenate(" error status: ";filestatus)
-                  to fs-msg
-                display file-status-screen
                 stop run
             end-if.
        bef-exit.
            exit.
 
+       get-file-status section.
+       copy "filestatus-procedure.cpy" replacing ==msg== by ==ws-msg==.
+           move function concatenate(" file action: ",ws-msg) to fs-msg.
+           display file-status-screen.
+       gfs-exit.
+
+       initialize-ws-record section.
+           move spaces to ws-response.
+           move spaces to ws-last-name.
+           move spaces to ws-first-name.
+           move spaces to ws-street-name.
+           move spaces to ws-city.
+           move spaces to ws-state.
+           move spaces to ws-zip.
+           move spaces to ws-notes.
+           move zero to ws-name-code.
+       iwr-exit.
+           exit.
+
+       
