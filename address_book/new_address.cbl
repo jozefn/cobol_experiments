@@ -53,10 +53,41 @@
       
         screen section.
         01 clear-screen blank screen
-           background-color is cob-color-blue
+           background-color is cob-color-white
            foreground-color is cob-color-black.
 
-        01 main-screen background-color is cob-color-blue
+        01 search-screen background-color is cob-color-white
+                       foreground-color is cob-color-black.
+           05  line 3 col 10 value "Last name:".  
+           05  error-last-name                     line 3 col 9
+                foreground-color is cob-color-red 
+                pic x from id-num-error.
+           05  last-name                           line 3 col 30 
+                 pic x(20) from fd-last-name to fd-last-name.
+           05  line 4 col 10 value "Phone:".
+           05  error-phone                         line 4 col 9
+                foreground-color is cob-color-red 
+                pic x from id-num-error.
+           05  phone-number-area                   line 4 col 30
+                pic x(12) from fd-phone to fd-phone auto full underline.
+           05 key-dsc-area1    line 22 column 01
+              background-color is cob-color-blue
+              foreground-color is cob-color-white
+              pic x(85)
+              from exit-key.
+           05 key-dsc-area2    line 23 column 01
+              background-color is cob-color-blue
+              foreground-color is cob-color-white
+              pic x(85)
+              from exit-key2.
+           05 msg-linex       line 24 column 01
+              foreground-color is cob-color-red
+              pic x(77)
+              from msg-line.
+
+
+
+        01 main-screen background-color is cob-color-white
                        foreground-color is cob-color-black.
            05  line 3 col 10 value "Last name:".  
            05  error-last-name                     line 3 col 9
@@ -112,7 +143,7 @@
             perform open-file
             display clear-screen
             perform initialize-variables
-            perform read-next-record
+        *>    perform read-next-record
             perform screen-loop thru screen-loop-exit.
       
         stop-prg.
@@ -137,6 +168,7 @@
             move spaces to fd-state.
             move spaces to fd-zip.
             move spaces to fd-notes.
+            move spaces to fd-phone.
             move spaces to msg-line.
       
         screen-loop.
@@ -158,7 +190,17 @@
                      perform write-record
                   end-if
                when cob-crt-status = cob-scr-f4
-                  perform read-record-by-key
+                  perform initialize-variables
+                  display clear-screen
+                  display search-screen
+                  accept search-screen
+                  if fd-last-name is not equal spaces
+                    perform read-next-record-by-name
+                  else if fd-phone not equal spaces
+                    perform read-record-by-key
+                  else
+                    move "must chose a name or phone " to msg-line
+                  end-if
                when cob-crt-status = cob-scr-f7
                   perform read-last-record
                when cob-crt-status = cob-scr-f8
@@ -246,7 +288,7 @@
       
         read-next-record-by-name.
             perform reset-screen-ind
-            start address-file key > fd-last-name
+            start address-file key >= fd-last-name
               invalid key
                 move "end of file"            to msg-line
                 display ring-bell
