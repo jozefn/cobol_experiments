@@ -8,34 +8,33 @@
             cursor         is      llcc.
         input-output section.
         file-control.
-            select optional     indexed-file
+            select optional     address-file
                    assign       to  outfile
                    organization is  indexed
-                   record key   is  ph-number
-                   alternate record key is name-value  with duplicates
-                   file status  is  file-stat
+                   record key   is fd-phone
+                   alternate record key is fd-last-name  with duplicates
+                   file status  is  filestatus
                    lock mode    is manual with lock on multiple records
                    access mode  is  dynamic.
       
        data division.
         file section.
-        fd   indexed-file.
-        01   indexed-record.
-             02  ph-number             pic 9(4).
-             02  name-value            pic x(40).
-      
+        fd address-file.
+        01 address-record.
+        copy "address-record.cpy" replacing ==(tag)== by ==fd-==.
+
         working-storage section.
-      
-        01   wk-record.
-             02  wk-ph-number          pic 9(4).
-             02  wk-name-value         pic x(40).
-      
-      
+        01 address-structure.
+        copy "address-record.cpy" replacing ==(tag)== by ==ws-==.
+
+
+
         copy screenio.
+
+        copy "filestatus.cpy".
         01  llcc                       pic 9(04).
         01  outfile                    pic x(50)
-            value "/mnt/c/cobfiles\sample4jout.idx".
-        01  file-stat                  pic x(02).
+            value "/mnt/c/cobfiles\address.idx".
         01  id-num-error               pic x(01) value space.
         01  name-value-error           pic x(01) value space.
         01  screen-error               pic 9(01) value zero.
@@ -54,42 +53,51 @@
       
         screen section.
         01 clear-screen blank screen
-           background-color is cob-color-white
+           background-color is cob-color-blue
            foreground-color is cob-color-black.
 
-        01 main-screen background-color is cob-color-white
+        01 main-screen background-color is cob-color-blue
                        foreground-color is cob-color-black.
-           05                 line 01
-                              column 01 value "ph-number:" highlight.
-           05 ph-number-error line 01 column 12
-              foreground-color is cob-color-red
-              pic x(1) from id-num-error.
-           05 ph-number-area  line 01 column 14
-              foreground-color is cob-color-blue
-              pic 9(4)
-              from ph-number to ph-number auto full underline.
-           05                 line 03 column 01
-              value "name:     "  highlight.
-           05 name-error      line 03 column 12
-              foreground-color is cob-color-red
-              pic x(1)
-              from name-value-error.
-           05 name-area       line 03 column 14
-              foreground-color is cob-color-blue
-              pic x(40)
-              from name-value to name-value auto underline.
+           05  line 3 col 10 value "Last name:".  
+           05  error-last-name                     line 3 col 9
+                foreground-color is cob-color-red 
+                pic x from id-num-error.
+           05  last-name                           line 3 col 30 
+                 pic x(20) from fd-last-name to fd-last-name.
+           05  line 4 col 10 value "First name:".
+           05  first-name                          line 4 col 30 
+                 pic x(20) from fd-first-name to fd-first-name.
+           05  line 5 col 10 value "Street name:". 
+           05  street-name                         line 5 col 30 
+                pic x(40) from fd-street-name to fd-street-name.
+           05  line 6 col 10 value "City:".
+           05  city-name                           line 6 col 30 
+                pic x(40) from fd-city to fd-city.
+           05  line 7 col 10 value "State:".
+           05  state-name                          line 7 col 30
+                pic x(2) from fd-state to fd-state.
+           05  line 8 col 10 value "Zip:". 
+           05  zip-value                           line 8 col 30
+                pic x(10) from fd-zip to fd-zip.
+           05  line 9 col 10 value "Phone:".
+           05  error-phone                         line 9 col 9
+                foreground-color is cob-color-red 
+                pic x from id-num-error.
+           05  phone-number-area                   line 9 col 30
+                pic x(12) from fd-phone to fd-phone auto full underline.
+           05  line 10 col 10 value "notes:". 
+           05  notes-value                         line 10 col 30
+                pic x(50) from fd-notes to fd-notes.
            05 key-dsc-area1    line 22 column 01
               background-color is cob-color-blue
               foreground-color is cob-color-white
               pic x(85)
               from exit-key.
-      
            05 key-dsc-area2    line 23 column 01
               background-color is cob-color-blue
               foreground-color is cob-color-white
               pic x(85)
               from exit-key2.
-      
            05 msg-linex       line 24 column 01
               foreground-color is cob-color-red
               pic x(77)
@@ -108,21 +116,27 @@
             perform screen-loop thru screen-loop-exit.
       
         stop-prg.
-            close indexed-file.
+            close address-file.
             stop run.
       
         open-file.
-            open i-o indexed-file
-            if file-stat = '00' or '05'
+            open i-o address-file
+            if filestatus = '00' or '05'
                continue
             else
-               display 'cannot open file ' file-stat
+               display 'cannot open file ' filestatus
                stop run
             end-if.
       
         initialize-variables.
-            move zeros  to ph-number
-            move spaces to name-value name-value-error
+            move spaces to name-value-error.
+            move spaces to fd-last-name.
+            move spaces to fd-first-name.
+            move spaces to fd-street-name.
+            move spaces to fd-city.
+            move spaces to fd-state.
+            move spaces to fd-zip.
+            move spaces to fd-notes.
             move spaces to msg-line.
       
         screen-loop.
@@ -162,26 +176,23 @@
         reset-screen-ind.
             move spaces to id-num-error name-value-error.
       
-        upper-case-fields.
-            move function upper-case(name-value) to name-value.
-      
         write-record.
-            move indexed-record to wk-record
-            read indexed-file with lock key is ph-number  *> lock record before updati
-            move wk-record to indexed-record
+           move address-record to address-structure
+           read address-file with lock key is fd-phone  *> lock record before updati
+           move address-structure to address-record
       
-            write indexed-record
-            if file-stat = '00'
+            write address-record
+            if filestatus = '00'
                move "record added" to msg-line
             else
-               if file-stat = '22'
-                  rewrite indexed-record
-                  if file-stat = '00' or '02' *> 02 handles dup alternate key
+               if filestatus = '22'
+                  rewrite address-record
+                  if filestatus = '00' or '02' *> 02 handles dup alternate key
                      move "record updated" to msg-line
                   else
                      string "cannot update record."
-                            " file-status = "
-                            file-stat delimited by size
+                            " filestatusus = "
+                            filestatus delimited by size
                             into msg-line
                      end-string
                   end-if
@@ -193,8 +204,8 @@
       
         read-record-by-key.
             perform reset-screen-ind
-            move spaces to name-value
-            read indexed-file key is ph-number
+            move spaces to fd-last-name
+            read address-file key is fd-phone
               invalid key
                 move "key not found"          to msg-line
                 display ring-bell
@@ -205,25 +216,25 @@
       
         delete-record-by-key.
             perform reset-screen-ind
-            move spaces to name-value
-            delete indexed-file record
+            move spaces to fd-last-name
+            delete address-file record
               invalid key
                 move "key not found"          to msg-line
                 display ring-bell
               not invalid key
                 move "record deleted"         to msg-line
-                move spaces to name-value
+                move spaces to fd-last-name 
             end-delete.
             perform record-lock-check.
       
         read-next-record.
             perform reset-screen-ind
-            start indexed-file key > ph-number
+            start address-file key > fd-phone
               invalid key
                 move "end of file"            to msg-line
                 display ring-bell
               not invalid key
-                read indexed-file next
+                read address-file next
                   at end
                      move "end of file"       to msg-line
                      display ring-bell
@@ -235,13 +246,12 @@
       
         read-next-record-by-name.
             perform reset-screen-ind
-            perform upper-case-fields
-            start indexed-file key > name-value
+            start address-file key > fd-last-name
               invalid key
                 move "end of file"            to msg-line
                 display ring-bell
               not invalid key
-                read indexed-file next
+                read address-file next
                   at end
                      move "end of file"       to msg-line
                      display ring-bell
@@ -253,12 +263,12 @@
       
         read-last-record.
             perform reset-screen-ind
-            start indexed-file key < ph-number
+            start address-file key < fd-phone
               invalid key
                 move "beginning of file"      to msg-line
                 display ring-bell
               not invalid key
-                read indexed-file previous
+                read address-file previous
                   at end
                      move "beginning of file" to msg-line
                      display ring-bell
@@ -270,13 +280,12 @@
       
         read-last-record-by-name.
             perform reset-screen-ind
-            perform upper-case-fields
-            start indexed-file key < name-value
+            start address-file key < fd-last-name
               invalid key
                 move "beginning of file"      to msg-line
                 display ring-bell
               not invalid key
-                read indexed-file previous
+                read address-file previous
                   at end
                      move "beginning of file" to msg-line
                      display ring-bell
@@ -287,7 +296,7 @@
             end-start.
       
         record-lock-check.
-           evaluate file-stat
+           evaluate filestatus
             when 00 move 'success ' to msg-line
             when 02 move 'success duplicate ' to msg-line
             when 04 move 'success incomplete ' to msg-line
@@ -331,11 +340,10 @@
         reset-screen-info.
             move zeros  to llcc
             move spaces to msg-line
-            perform reset-screen-ind
-            perform upper-case-fields.
+            perform reset-screen-ind.
       
         edit-name-value.
-            if name-value = spaces
+            if fd-last-name = spaces
                move "name cannot be blank" to msg-line
                set screen-error-exists to true
                move 0314               to llcc
@@ -343,7 +351,7 @@
                display ring-bell
                go to edit-name-value-exit
             end-if
-            if name-value not myalpha
+            if fd-last-name not myalpha
                move "name must contain only alpha characters"
                  to msg-line
                set screen-error-exists to true
@@ -355,16 +363,16 @@
             exit.
       
         edit-id-field.
-            if ph-number not numeric
-               move "ph-number must be numeric" to msg-line
+            if fd-phone not numeric
+               move "phone must be numeric" to msg-line
                set screen-error-exists to true
                move 0114               to llcc
                move "*" to id-num-error
                display ring-bell
                go to edit-id-field-exit
             end-if
-            if ph-number < 1
-               move "ph-number must be greater than zero" to msg-line
+            if fd-phone < 1
+               move "phone must be greater than zero" to msg-line
                set screen-error-exists to true
                move 0114               to llcc
                move "*" to id-num-error
@@ -373,5 +381,5 @@
         edit-id-field-exit.
             exit.
       
-        end program sample4j.
+        end program address.
 
