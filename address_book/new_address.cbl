@@ -41,6 +41,18 @@
             88 no-screen-error-exist   value 0.
             88 screen-error-exists     value 1.
         01  msg-line                   pic x(80).
+        01  ws-error                   pic 9(01) value 0.
+            88 in-error                value 1.
+            88 not-in-error            value 0.
+        01  ws-phone1                  pic x(03).
+        01  ws-phone2                   pic x(03).
+        01  ws-phone3                   pic x(04).
+        01  ws-hyphen                   pic s9(09) value 0.
+        01  p1                          pic x.
+        01  p2                          pic x.
+        01  p3                          pic x.
+        01  ws-count                    pic s9(09) value 0.
+
         01  exit-key                   pic x(85)
              value "f1 = exit f4 = lookup enter = save "
              & "f2 = next by name f3 = last by name".
@@ -392,40 +404,51 @@
             if fd-last-name = spaces
                move "name cannot be blank" to msg-line
                set screen-error-exists to true
-               move 0314               to llcc
+               move 0030               to llcc
                move "*" to name-value-error
-               display ring-bell
                go to edit-name-value-exit
             end-if
             if fd-last-name not myalpha
                move "name must contain only alpha characters"
                  to msg-line
                set screen-error-exists to true
-               move 0314               to llcc
+               move 0030               to llcc
                move "*" to name-value-error
-               display ring-bell
             end-if.
         edit-name-value-exit.
             exit.
       
         edit-id-field.
-            if fd-phone not numeric
-               move "phone must be numeric" to msg-line
+            move 0 to ws-error.
+            move 0 to ws-count.
+            inspect fd-phone tallying ws-count for all '-'.
+            if ws-count not equal 2
+               move 1 to ws-error
+            end-if.
+            if not-in-error
+	            unstring fd-phone delimited by '-'
+	                    into ws-phone1 delimiter in p1
+	                         ws-phone2 delimiter in p2 
+	                         ws-phone3 delimiter in p3
+	            if ws-phone1 not numeric 
+	               move 1 to ws-error
+	            end-if
+	            if ws-phone2 not numeric
+	               move 1 to ws-error
+	            end-if
+	            if ws-phone3 not numeric
+	               move 1 to ws-error
+                end-if
+            end-if.
+            if in-error
+               move "phone must be in ###-###-#### format" to msg-line
                set screen-error-exists to true
-               move 0114               to llcc
+               display llcc line 25 col 50
+               move 0630               to llcc
                move "*" to id-num-error
-               display ring-bell
-               go to edit-id-field-exit
-            end-if
-            if fd-phone < 1
-               move "phone must be greater than zero" to msg-line
-               set screen-error-exists to true
-               move 0114               to llcc
-               move "*" to id-num-error
-               display ring-bell
             end-if.
         edit-id-field-exit.
             exit.
-      
+
         end program address.
 
