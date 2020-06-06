@@ -47,7 +47,7 @@
       
         01  exit-key2                  pic x(85)
              value "f7 = back by phone f8 = next by phone, "
-             & "f9 = delete".
+             & "f9 = delete f10 = add new record".
       
         01  screen-status pic 9(04) .
       
@@ -207,6 +207,10 @@
                   perform read-next-record
                when cob-crt-status = cob-scr-f9
                   perform delete-record-by-key
+               when cob-crt-status = cob-scr-f10
+                  perform initialize-variables
+                  move "Add new record " to msg-line
+                  go to screen-loop
                when other
                   move "invalid release key pressed." to msg-line
                   display ring-bell
